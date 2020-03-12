@@ -1,0 +1,221 @@
++--------------------------+
+						|		CS 140		|
+| PROJECT 2: USER PROGRAMS	|
+| 	   DESIGN DOCUMENT     	|
++--------------------------+
+
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+Sahil Gupta <sgupta42@buffalo.edu>
+Sanket Kulthe <sanketpr@buffalo.edu>
+Abhimanyu Shah <ashah25@buffalo.edu>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+ARGUMENT PASSING
+================
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+Changing the function load(*file_name, (**eip)(void), **esp) in process.c
+This function is currently responsible to load ELF from given file name.
+Using strtok_r() we can fetch the arguments and then push them in the stack
+
+We do not need to make any changes to struct,variable etc.
+
+---- ALGORITHMS ----
+
+>> A2: Briefly describe how you implemented argument parsing.  How do
+>> you arrange for the elements of argv[] to be in the right order?
+>> How do you avoid overflowing the stack page?
+
+a. fetch the arguments by tokenizing the command line args in strtok_r and store them in a variable
+b. reverse the order of the arguments so that we get them in right to left order
+c. We push the arguments in a stack. Pusing the arguments from right to left such that
+argv[0] is at lowest level in the stack.
+d. Round up the stack pointer to multiple of 4 before the first push to the stack using ROUND_UP()
+function (since word aligned access is faster).
+e. And then push a fake return address
+
+Since the size of stack page is limited to 4KB when adding arguments we need to ensure that they don't
+exceed the value. This way we can avoid the stack page from overflowing.
+
+---- RATIONALE ----
+
+>> A3: Why does Pintos implement strtok_r() but not strtok()?
+
+The major difference between them is strtok() is not safe to run on multiple threads but strtok_r() is safe.
+When parsing the input for tokens it saves the state internally. This is not safe when we have multiple threads,
+This is not desired in Pintos.
+
+>> A4: In Pintos, the kernel separates commands into a executable name
+>> and arguments.  In Unix-like systems, the shell does this
+>> separation.  Identify at least two advantages of the Unix approach.
+
+Parsing in shell is better because
+Kernel no longer needs to have overhead of parsing and seperation.
+Also it adds felxibility and security.
+
+	SYSTEM CALLS
+	============
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+Updating existing thread struct.
+struct thread
+{
+struct semaphore process_exec;  // for process loading, set to 0 initially
+struct semaphore process_wait;  // to wait for the child process, set to 0 initially
+struct semaphore process_exit;  // to stop the child process from exiting while wait is executing, set to 0 initially
+struct file *exec;
+int return_status;
+struct thread *parent_process;	//parent of this process
+struct list open_files;			//files opened by the process
+bool wait_done;			// check if the process has already called wait once
+
+}
+
+A new structure containing information about files.
+struct file_info
+{
+int fd;				// file descriptor
+struct file *s; 			// file
+struct list_elem store_file	// list element to store files in open_files
+
+}
+
+static struct lock lock_f;		// ensure one process executes file system code
+static int fd_counter ;			// to assign file descriptor to an open file
+
+
+>> B2: Describe how file descriptors are associated with open files.
+>> Are file descriptors unique within the entire OS or just within a
+>> single process?
+
+File descriptors are unique within a single process. Every process has its own
+unique file descriptor for a particular file that it has opened.
+
+---- ALGORITHMS ----
+
+>> B3: Describe your code for reading and writing user data from the
+>> kernel.
+
+The user provided address has to be checked for validity before doing the read or
+write. The virtual address should be valid. The first argument will decide where the data has to be read from or written into.
+0 is kept for standard input, 1 for standard output. Any other value means a file.
+If the data is to be read or written from a file, then we are using the file_info struct to
+obtain the file pointer to do the operations.
+
+>> B4: Suppose a system call causes a full page (4,096 bytes) of data
+>> to be copied from user space into the kernel.  What is the least
+>> and the greatest possible number of inspections of the page table
+>> (e.g. calls to pagedir_get_page()) that might result?  What about
+>> for a system call that only copies 2 bytes of data?  Is there room
+>> for improvement in these numbers, and how much?
+
+>> B5: Briefly describe your implementation of the "wait" system call
+>> and how it interacts with process termination.
+
+Here, we using a semaphore to make sure that the process waits for its
+children processes. We have defined a process_wait semaphore on the child. Each child
+will up the semaphore when it exits. The parent process would wait for its children to exit before it can down the semaphore and stop waiting and resume its execution.
+
+
+>> B6: Any access to user program memory at a user-specified address
+>> can fail due to a bad pointer value.  Such accesses must cause the
+>> process to be terminated.  System calls are fraught with such
+>> accesses, e.g. a "write" system call requires reading the system
+>> call number from the user stack, then each of the call's three
+>> arguments, then an arbitrary amount of user memory, and any of
+>> these can fail at any point.  This poses a design and
+>> error-handling problem: how do you best avoid obscuring the primary
+>> function of code in a morass of error-handling?  Furthermore, when
+>> an error is detected, how do you ensure that all temporarily
+>> allocated resources (locks, buffers, etc.) are freed?  In a few
+>> paragraphs, describe the strategy or strategies you adopted for
+>> managing these issues.  Give an example.
+
+Attempt to access user program memory with a bad pointer value will result in the user program to terminate with a return value of -1. Here this task will be taken care of by the exit(-1) function call and the resources such as the open files and locks will also be released by the exit function.
+
+
+---- SYNCHRONIZATION ----
+
+>> B7: The "exec" system call returns -1 if loading the new executable
+>> fails, so it cannot return before the new executable has completed
+>> loading.  How does your code ensure this?  How is the load
+>> success/failure status passed back to the thread that calls "exec"?
+
+We are using a semaphore to make sure that the new executable has completed
+loading before returning from the function. We can use the semaphore to block the function
+from returning back. When the process is completed loaded it will up the semaphore. Then the waiting process will be able to down the semaphore and return.
+
+>> B8: Consider parent process P with child process C.  How do you
+>> ensure proper synchronization and avoid race conditions when P
+>> calls wait(C) before C exits?  After C exits?  How do you ensure
+>> that all resources are freed in each case?  How about when P
+>> terminates without waiting, before C exits?  After C exits?  Are
+>> there any special cases?
+
+We are using a semaphore, process_wait, to make the parent wait for the child process. If P
+calls wait(C) before C exits, then P will down the semaphore (which is set to 0 initially) and wait for C to exit. On exit, C will up the semaphore (making it 1 and enabling the parent to successfully acquire it).
+
+Similarly, we can block C until P calls wait(C) to make sure C doesn't exit before P can
+call wait(C). This is handled using another semaphore, process_exit. C will down the semaphore and wait for the parent to up the semaphore and then exit.
+
+---- RATIONALE ----
+
+>> B9: Why did you choose to implement access to user memory from the
+>> kernel in the way that you did?
+
+To implement access to user memory from kernel we chose to validate whether a user pointer points below PHYS_BASE, then dereference it. An invalid user pointer leads to a page fault which we are handling. This technique is normally faster because it takes advantage of the processor’s MMU. This method is used in real kernels also.
+
+>> B10: What advantages or disadvantages can you see to your design
+>> for file descriptors?
+
+We wanted to use a structure which can support key, value pairs. Since there is no straight forward way of achieving that in C language, we used a structure having both the key and value as its members. We are storing both the file descriptor and the name of the file in this structure. This approach lets us access the file name given the descriptor and the other way around without writing much code.
+
+>> B11: The default tid_t to pid_t mapping is the identity mapping.
+>> If you changed it, what advantages are there to your approach?
+
+We haven't made any changes to it.
+
+SURVEY QUESTIONS
+================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
+
+>> Any other comments?
