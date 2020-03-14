@@ -1,21 +1,13 @@
-# Pintos
+# Operating System Project on Pintos
 
-## Welcome to Pintos
-Pintos is an educational 80x86 operating system framework developed by Ben Pfaff. As mentioned in class, there will be four programming assignments this semester. All of the programming assignments in this class are centered around implementing the core functionality of the Pintos operating system. This repository contains the Pintos skeleton code and documentation, should you need to reference it throughout the semester.
+## Project 1 (on branch: Proj1)
+- In this project we were supposed to extend the minimal functionality of thread system in PintOS
+- Implementing `thread synchorinization` for a better alarm clock, `thread scheduling` in which we had to 
+do `priority donation` and `multilevel feedback queue`
 
-A link to the online Pintos documentation [can be found here](http://web.stanford.edu/class/cs140/projects/pintos/pintos_1.html#SEC1 "Pintos documentation").
-
-
-## Repository Setup
-Name: Tommy Trojan
-
-Email: ttrojan@usc.edu
-
-ID: 1234567890
-
-##Project Organization
-Please make sure you organize your repository in the following manner:
-
-<strong>Project directores</strong> For each project you need to create a new directory. Make sure they're named "proj\<number\>". For example "proj1".
-
-<strong>Design document</strong> Make sure your design document for each project is placed in the correct directory (per project instruction), and named "DESIGNDOC" with no extensions.
+## Project 2 (on branch: Proj2)
+- Providing/Denying file system access
+- Argument Passing: PintOS does not take arguments for system calls. Here we were supposed to parse the arguments by white spaces
+and push them in reverse order on to the stack.
+- System Calls: For User program to execute some kernel level commands it makes syscall interrupt.
+For this purpose we needed 13 system calls (halt, exit, exec, wait, create, remove, open, filesize, read, write, seek, tell, close) to be implemented.
